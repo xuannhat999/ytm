@@ -89,8 +89,10 @@ dependencies = [
  "gjson",
  "reqwest",
  "rookie",
+ "rusqlite",
  "serde",
  "sha1_smol",
+ "tokio",
 ]
 
 [[package]]
