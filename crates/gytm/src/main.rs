@@ -9,7 +9,7 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use data::mpv::{MpvCommand, MpvEvent};
-use error::{YResult, log_to_file};
+use error::{YResult, log_to_file, startup_error_message};
 use player::Player;
 use ratatui::{Terminal, backend::CrosstermBackend};
 use state::PlayerState;
@@ -53,7 +53,7 @@ async fn main() -> YResult<()> {
         Ok(d) => d,
         Err(e) => {
             log_to_file(&e);
-            println!("Internet connection error");
+            eprintln!("{}", startup_error_message(&e));
             std::process::exit(1);
         }
     };

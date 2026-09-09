@@ -31,6 +31,7 @@ time = { version = "0.3", default-features = false, features = [
   "local-offset",
 ] }
 rookie = { version = "0.5.6" }
+rusqlite = "0.31.0"
 url = "2.5.8"
 gjson = "0.8.0"
 basic-toml = "0.1"
