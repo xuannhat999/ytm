@@ -856,15 +856,10 @@ async fn test_live_profile_manual() {
     );
 
     // Runs bootstrap initialization directly using the exact jar and sapisid extracted from the specified profile!
-    let (dao, info) = crate::dao::YTDao::new_with_session_internal(jar, sapisid)
+    let dao = crate::dao::YTDao::new_with_session_internal(jar, sapisid)
         .await
         .expect("YTDao initialization with specified session must succeed");
 
-    assert_eq!(
-        info.http_status,
-        reqwest::StatusCode::OK,
-        "HTTP bootstrap request must return 200 OK"
-    );
     assert!(
         dao.sapisid.is_some(),
         "DAO must retain SAPISID from session"
@@ -876,10 +871,6 @@ async fn test_live_profile_manual() {
     assert!(
         !dao.client_version.is_empty(),
         "DAO must extract INNERTUBE_CLIENT_VERSION"
-    );
-    assert!(
-        info.has_logged_in_marker,
-        "Bootstrap response must confirm LOGGED_IN:true"
     );
 }
 

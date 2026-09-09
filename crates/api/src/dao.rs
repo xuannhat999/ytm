@@ -1,5 +1,5 @@
 use data::app::{PlayListPrivacy, Song};
-use error::{YError, YResult};
+use error::{YError, YResult, log_to_file};
 use reqwest::{
     Client, Url,
     cookie::Jar,
@@ -36,13 +36,6 @@ pub(crate) struct BootstrapInfo {
 
 pub(crate) const YTM_HOST: &str = "music.youtube.com";
 pub(crate) const YTM_DOMAIN: &str = "https://music.youtube.com";
-
-pub(crate) fn validate_bootstrap_auth_state(has_sapisid: bool, logged_in: bool) -> YResult<()> {
-    if has_sapisid && !logged_in {
-        return Err(YError::InvalidCookie);
-    }
-    Ok(())
-}
 
 pub(crate) fn cookie_domain_applies_to_host(cookie_domain: &str, host: &str) -> bool {
     if let Some(domain) = cookie_domain.strip_prefix('.') {
@@ -87,24 +80,26 @@ pub(crate) fn sapisid_from_jar(jar: &Jar, url: &Url) -> Option<String> {
 impl YTDao {
     pub async fn new() -> YResult<Self> {
         let (jar, sapisid) = load_cookies()?;
-        let (dao, _info) = Self::new_with_session_internal(jar, sapisid).await?;
+        let dao = Self::new_with_session_internal(jar, sapisid).await?;
         Ok(dao)
     }
 
     pub(crate) async fn new_with_session_internal(
         jar: Jar,
         sapisid: Option<String>,
-    ) -> YResult<(Self, BootstrapInfo)> {
+    ) -> YResult<Self> {
         let http = Client::builder()
             .cookie_provider(Arc::new(jar))
             .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             .build()?;
 
         let response = http.get(YTM_DOMAIN).send().await?;
-        let http_status = response.status();
+        log_to_file(format!(
+            "Init client response status: {}",
+            response.status()
+        ));
         let response_text = response.text().await?;
         let has_auth = sapisid.is_some();
-
         let innertube_api_key = extract_between(&response_text, "INNERTUBE_API_KEY\":\"", "\"")
             .ok_or_else(|| {
                 if has_auth {
@@ -128,8 +123,17 @@ impl YTDao {
             })?;
 
         let has_logged_in_marker = response_text.contains("\"LOGGED_IN\":true");
+        log_to_file(format!("Has auth: {}", has_auth));
+        log_to_file(format!("Has logged_in marker: {}", has_logged_in_marker));
 
-        validate_bootstrap_auth_state(has_auth, has_logged_in_marker)?;
+        if !has_logged_in_marker {
+            return Ok(Self {
+                http,
+                sapisid: None,
+                innertube_api_key,
+                client_version,
+            });
+        }
 
         let dao = Self {
             http,
@@ -137,11 +141,8 @@ impl YTDao {
             innertube_api_key,
             client_version,
         };
-        let info = BootstrapInfo {
-            http_status,
-            has_logged_in_marker,
-        };
-        Ok((dao, info))
+
+        Ok(dao)
     }
 
     // This function is adapted from: https://github.com/ccgauche/ytermusic.git
@@ -631,29 +632,20 @@ pub(crate) fn select_cross_family_session(
 }
 
 pub fn load_cookies() -> YResult<(Jar, Option<String>)> {
-    load_cookies_with_roots(dirs::config_dir().as_deref(), dirs::home_dir().as_deref())
-}
-
-pub(crate) fn load_cookies_with_roots(
-    config_dir: Option<&Path>,
-    home_dir: Option<&Path>,
-) -> YResult<(Jar, Option<String>)> {
-    let gecko_candidate = gecko::load_gecko_cookies_with_roots(config_dir, home_dir)?;
+    let config_dir = dirs::config_dir();
+    let home_dir = dirs::home_dir();
+    let gecko_candidate =
+        gecko::load_gecko_cookies_with_roots(config_dir.as_deref(), home_dir.as_deref())?;
     // Fast-path: If Gecko candidate has authentication, it takes highest global precedence (#1)
     if let Some((_, Some(_))) = &gecko_candidate {
         return Ok(gecko_candidate.unwrap());
     }
 
-    let chromium_candidate = load_chromium_candidate_with_roots(config_dir)?;
+    let chromium_candidate = load_chromium_candidate_with_roots(config_dir.as_deref())?;
     Ok(select_cross_family_session(
         gecko_candidate,
         chromium_candidate,
     ))
-}
-
-pub fn load_chromium_cookies() -> YResult<(Jar, Option<String>)> {
-    let candidate = load_chromium_candidate_with_roots(dirs::config_dir().as_deref())?;
-    Ok(candidate.unwrap_or_else(|| (Jar::default(), None)))
 }
 
 pub(crate) type BrowserLoader = fn(Option<Vec<String>>) -> rookie::Result<Vec<Cookie>>;

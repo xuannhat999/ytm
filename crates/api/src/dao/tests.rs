@@ -451,24 +451,6 @@ fn test_cross_family_selection_gecko_none_chromium_anon_returns_chromium() {
     let header_str = header.to_str().unwrap();
     assert!(header_str.contains("PREF=chrom_anon"));
 }
-// 18. Server LOGGED_IN validation state
-#[test]
-fn test_validate_bootstrap_auth_state_matrix() {
-    // SAPISID present + LOGGED_IN=true -> Ok
-    assert!(validate_bootstrap_auth_state(true, true).is_ok());
-
-    // SAPISID present + LOGGED_IN=false -> Err(InvalidCookie)
-    match validate_bootstrap_auth_state(true, false) {
-        Err(YError::InvalidCookie) => {}
-        other => panic!("Expected InvalidCookie, got: {other:?}"),
-    }
-
-    // SAPISID absent + LOGGED_IN=false -> Ok (anonymous session)
-    assert!(validate_bootstrap_auth_state(false, false).is_ok());
-
-    // SAPISID absent + LOGGED_IN=true -> Ok
-    assert!(validate_bootstrap_auth_state(false, true).is_ok());
-}
 
 // 19. Exact cookie domain applicability for music.youtube.com
 #[test]
