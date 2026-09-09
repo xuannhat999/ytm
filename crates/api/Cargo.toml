@@ -9,6 +9,10 @@ error = { workspace = true }
 sha1_smol = { workspace = true }
 serde = { workspace = true }
 rookie = { workspace = true }
+rusqlite = { workspace = true }
 reqwest = { workspace = true }
 dirs = { workspace = true }
 gjson = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

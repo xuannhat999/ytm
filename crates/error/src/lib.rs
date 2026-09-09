@@ -34,6 +34,17 @@ pub enum YError {
     #[error("Invalid Cookie")]
     InvalidCookie,
 
+    #[error("Unavailable feature in logged out mode")]
+    UnavailableFeature,
+
+    #[error(
+        "Conflicting browser container identities: multiple containers contain active YouTube sessions"
+    )]
+    ConflictingContainerIdentities,
+
+    #[error("Database error: {0}")]
+    DatabaseError(String),
+
     #[error("URL parsing failed: {0}")]
     UrlParseError(#[from] url::ParseError),
 
@@ -51,6 +62,31 @@ pub enum YError {
 }
 
 pub type YResult<T> = std::result::Result<T, YError>;
+
+pub fn startup_error_message(err: &YError) -> String {
+    match err {
+        YError::ReqwestError(e) => {
+            if e.is_connect() || e.is_timeout() {
+                "Connection failure: unable to connect to YouTube Music".to_string()
+            } else {
+                format!("HTTP request error: {e}")
+            }
+        }
+        YError::InvalidCookie => {
+            "Authentication error: invalid or expired session cookies".to_string()
+        }
+        YError::ConflictingContainerIdentities => {
+            "Authentication error: multiple conflicting browser container identities found"
+                .to_string()
+        }
+        YError::DatabaseError(msg) => {
+            format!("Database error: {msg}")
+        }
+        _ => {
+            format!("Initialization error: {err}")
+        }
+    }
+}
 
 pub fn log_to_file<T: Display>(message: T) {
     if let Some(log_path) = dirs::state_dir().map(|p| p.join("gytm")) {
@@ -82,5 +118,58 @@ pub fn log_to_file<T: Display>(message: T) {
         if let Ok(mut file) = options.open(file_path) {
             let _ = writeln!(file, "{} : {}", datetime, message);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_startup_error_reporting() {
+        let auth_err = YError::InvalidCookie;
+        assert_eq!(
+            startup_error_message(&auth_err),
+            "Authentication error: invalid or expired session cookies"
+        );
+
+        let container_err = YError::ConflictingContainerIdentities;
+        assert_eq!(
+            startup_error_message(&container_err),
+            "Authentication error: multiple conflicting browser container identities found"
+        );
+
+        let db_err = YError::DatabaseError("failed to create SQLite snapshot".to_string());
+        let db_msg = startup_error_message(&db_err);
+        assert_eq!(db_msg, "Database error: failed to create SQLite snapshot");
+        assert!(
+            !db_msg.contains("Connection failure"),
+            "Database error must not be mislabeled as network failure"
+        );
+
+        let init_err = YError::InvalidResponse("YouTube Music bootstrap data".to_string());
+        assert_eq!(
+            startup_error_message(&init_err),
+            "Initialization error: Invalid Response from: YouTube Music bootstrap data"
+        );
+    }
+
+    #[test]
+    fn test_invalid_cookie_message_contains_no_cookie_data() {
+        let err = YError::InvalidCookie;
+        let msg = startup_error_message(&err);
+        assert_eq!(
+            msg,
+            "Authentication error: invalid or expired session cookies"
+        );
+    }
+
+    #[test]
+    fn test_database_error_message_preserves_context() {
+        let context = "query execution failed at index 3";
+        let err = YError::DatabaseError(context.to_string());
+        let msg = startup_error_message(&err);
+        assert_eq!(msg, format!("Database error: {context}"));
+        assert_eq!(format!("{err}"), format!("Database error: {context}"));
     }
 }
