@@ -57,12 +57,13 @@ async fn main() -> YResult<()> {
             std::process::exit(1);
         }
     };
-    let is_logged_out = dao.sapisid.is_none();
+    let is_authed = dao.sapisid.is_some();
     let bus = YTBus::new(dao);
     spawn_api_worker(api_cmd_rx, api_res_tx, bus);
-    app.api_cmd_tx.send(ApiCmd::FetchLibraryData).ok();
-    app.api_loading_kind = Some(api::protocol::ApiLoadingKind::FetchLibraryData);
-
+    if is_authed {
+        app.api_cmd_tx.send(ApiCmd::FetchLibraryData).ok();
+        app.api_loading_kind = Some(api::protocol::ApiLoadingKind::FetchLibraryData);
+    }
     // Setup MPV player
     let (tx_event, mut rx) = mpsc::channel::<MpvEvent>(32);
 
@@ -85,10 +86,10 @@ async fn main() -> YResult<()> {
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    if is_logged_out {
+    if !is_authed {
         app.noti.notify(
             tui::notification::NotifyType::Error,
-            "Running in logged-out mode — some features are unavailable".to_string(),
+            "Running in logged-out mode. Library features are unavailable".to_string(),
         );
     }
 
