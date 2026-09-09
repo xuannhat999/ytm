@@ -28,12 +28,6 @@ pub struct YTDao {
     pub client_version: String,
 }
 
-#[allow(dead_code)]
-pub(crate) struct BootstrapInfo {
-    pub(crate) http_status: reqwest::StatusCode,
-    pub(crate) has_logged_in_marker: bool,
-}
-
 pub(crate) const YTM_HOST: &str = "music.youtube.com";
 pub(crate) const YTM_DOMAIN: &str = "https://music.youtube.com";
 

@@ -759,8 +759,10 @@ pub fn handle_api_response(app: &mut App, response: ApiResponse, player: &Player
             }
             Err(e) => {
                 log_to_file(&e);
-                app.noti
-                    .notify(NotifyType::Error, "Failed to create playlist".to_string());
+                app.noti.notify(
+                    NotifyType::Error,
+                    format!("Failed to create playlist: {}", e),
+                );
             }
         },
         ApiResponse::SaveSong(res) => match res {

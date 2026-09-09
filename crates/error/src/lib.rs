@@ -34,6 +34,9 @@ pub enum YError {
     #[error("Invalid Cookie")]
     InvalidCookie,
 
+    #[error("Unavailable feature in logged out mode")]
+    UnavailableFeature,
+
     #[error(
         "Conflicting browser container identities: multiple containers contain active YouTube sessions"
     )]
